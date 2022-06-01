@@ -3,11 +3,13 @@ import 'package:widgetbook/src/extensions/enum_extension.dart';
 import 'package:widgetbook/src/navigation/preview_provider.dart';
 import 'package:widgetbook/src/widgetbook_page.dart';
 import 'package:widgetbook/src/workbench/workbench_provider.dart';
+import 'package:widgetbook/widgetbook.dart';
 
 void refreshRoute<CustomTheme>(
   GoRouter router, {
   required WorkbenchProvider<CustomTheme> workbenchProvider,
   required PreviewProvider previewProvider,
+  required KnobsNotifier knobsNotifier,
 }) {
   final previewState = previewProvider.state;
   final workbenchState = workbenchProvider.state;
@@ -58,6 +60,10 @@ void refreshRoute<CustomTheme>(
       () => previewState.selectedUseCase!.path,
     );
   }
+  queryParameters.putIfAbsent(
+    'knobs',
+    () => knobsNotifier.buildKnobUrlArgs(),
+  );
 
   router.goNamed('/', queryParams: queryParameters);
 }
@@ -76,6 +82,7 @@ bool _parseBoolQueryParameter({
 GoRouter createRouter<CustomTheme>({
   required WorkbenchProvider<CustomTheme> workbenchProvider,
   required PreviewProvider previewProvider,
+  required KnobsNotifier knobsNotifier,
 }) {
   final router = GoRouter(
     redirect: (routerState) {
@@ -86,6 +93,7 @@ GoRouter createRouter<CustomTheme>({
       final orientation = routerState.queryParams['orientation'];
       final frame = routerState.queryParams['frame'];
       final path = routerState.queryParams['path'];
+      final knobArgs = routerState.queryParams['knobs'];
 
       workbenchProvider
         ..setThemeByName(theme)
@@ -95,6 +103,12 @@ GoRouter createRouter<CustomTheme>({
         ..setOrientationByName(orientation)
         ..setFrameByName(frame);
       previewProvider.selectUseCaseByPath(path);
+
+      if (knobArgs != null && knobArgs.isNotEmpty) {
+        knobsNotifier.setKnobsFromUrlArgs(
+          knobArgs: knobArgs,
+        );
+      }
       return null;
     },
     routes: [
@@ -125,6 +139,7 @@ GoRouter createRouter<CustomTheme>({
       router,
       workbenchProvider: workbenchProvider,
       previewProvider: previewProvider,
+      knobsNotifier: knobsNotifier,
     );
   });
 
@@ -133,6 +148,16 @@ GoRouter createRouter<CustomTheme>({
       router,
       workbenchProvider: workbenchProvider,
       previewProvider: previewProvider,
+      knobsNotifier: knobsNotifier,
+    );
+  });
+
+  knobsNotifier.addListener(() {
+    refreshRoute(
+      router,
+      workbenchProvider: workbenchProvider,
+      previewProvider: previewProvider,
+      knobsNotifier: knobsNotifier,
     );
   });
 

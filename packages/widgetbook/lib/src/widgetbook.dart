@@ -298,6 +298,7 @@ class _WidgetbookState<CustomTheme> extends State<Widgetbook<CustomTheme>> {
     goRouter = createRouter(
       workbenchProvider: workbenchProvider,
       previewProvider: previewProvider,
+      knobsNotifier: knobsNotifier,
     );
 
     super.initState();

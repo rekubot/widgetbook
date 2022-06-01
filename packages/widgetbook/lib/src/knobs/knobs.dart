@@ -53,6 +53,10 @@ class KnobsNotifier extends ChangeNotifier implements KnobsBuilder {
   final Map<WidgetbookUseCase, Map<String, Knob>> _knobs =
       <WidgetbookUseCase, Map<String, Knob>>{};
 
+  /// Stores the label and value of each knob included as URL query parameters
+  /// so initial values can be overridden when the knobs are built.
+  final Map<String, String> _urlArgs = {};
+
   List<Knob> all() {
     if (!_selectedStoryRepository.isSet()) {
       return [];
@@ -70,6 +74,13 @@ class KnobsNotifier extends ChangeNotifier implements KnobsBuilder {
   }
 
   T _addKnob<T>(Knob<T> value) {
+    // Override default knob value with URL query param if present
+    final urlArg = _urlArgs[value.label];
+    if (urlArg != null) {
+      final argValue = _parseUrlArg(value.value, urlArg);
+      value.value = argValue;
+    }
+
     final story = _selectedStoryRepository.item!;
     final knobs = _knobs.putIfAbsent(story, () => <String, Knob>{});
     return (knobs.putIfAbsent(value.label, () {
@@ -222,6 +233,57 @@ class KnobsNotifier extends ChangeNotifier implements KnobsBuilder {
         options: options,
       ),
     );
+  }
+
+  String buildKnobUrlArgs() {
+    final useCase = _selectedStoryRepository.item;
+    final knobs = _knobs[useCase];
+    var arg = '';
+
+    if (knobs != null) {
+      knobs.forEach((key, knob) {
+        if (knob is TextKnob) {
+          arg += '$key:${knob.value};';
+        }
+        // TODO: handle other knob types
+      });
+    }
+    return arg;
+  }
+
+  T _parseUrlArg<T>(T existingValue, String urlArg) {
+    if (existingValue is String) {
+      return urlArg as T;
+    }
+    // TODO: handle other knob value types
+    return null as T;
+  }
+
+  void setKnobsFromUrlArgs({
+    required String knobArgs,
+  }) {
+    final knobArgList = knobArgs.split(';');
+    for (final knobArg in knobArgList) {
+      final split = knobArg.split(':');
+      if (split.length >= 2) {
+        final knobLabel = split[0];
+        final newKnobValueArg = split[1];
+        _urlArgs[knobLabel] = newKnobValueArg;
+
+        // Update the knob if user edits the URL in the address bar
+        // after the page has loaded
+        final knobMap = _knobs[_selectedStoryRepository.item];
+        final knob = knobMap?[knobLabel];
+        final dynamic currentKnobValue = knob?.value;
+        if (currentKnobValue != null) {
+          final dynamic newKnobValue =
+              _parseUrlArg<dynamic>(currentKnobValue, newKnobValueArg);
+          if (currentKnobValue != newKnobValue) {
+            update<dynamic>(knobLabel, newKnobValue);
+          }
+        }
+      }
+    }
   }
 }
 
