@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:widgetbook/src/knobs/bool_knob.dart';
@@ -77,7 +78,7 @@ class KnobsNotifier extends ChangeNotifier implements KnobsBuilder {
     // Override default knob value with URL query param if present
     final urlArg = _urlArgs[value.label];
     if (urlArg != null) {
-      final argValue = _parseUrlArg(value.value, urlArg);
+      final argValue = _parseUrlArg(value, value.value, urlArg);
       value.value = argValue as T;
     }
 
@@ -243,24 +244,33 @@ class KnobsNotifier extends ChangeNotifier implements KnobsBuilder {
     if (knobs != null) {
       knobs.forEach((key, knob) {
         final dynamic knobValue = knob.value;
-        // if (knobValue != null) {
-        arg += '$key:';
-        arg += '$knobValue;';
-        // }
-        // if (knob is TextKnob) {
-        //   arg += '${knob.value};';
-        // } else if (knob is OptionsKnob) {
-        //   arg += '${knob.value};';
-        // }
-        // TODO: handle other knob types
+
+        if (knob is OptionsKnob) {
+          final matchingOption = knob.options
+              .firstWhereOrNull((element) => element.value == knobValue);
+          if (matchingOption != null) {
+            arg += '$key:';
+            arg += matchingOption.label;
+          }
+        } else {
+          arg += '$key:';
+          arg += '$knobValue';
+        }
+        arg += ';';
+        // TODO: check if other knob types need handling
       });
     }
     return arg;
   }
 
-  T? _parseUrlArg<T>(T existingValue, String urlArg) {
+  T? _parseUrlArg<T>(Knob knob, T existingValue, String urlArg) {
     if (urlArg == 'null') {
       return null;
+    }
+
+    if (knob is OptionsKnob) {
+      return knob.options.firstWhere((element) => element.label == urlArg).value
+          as T?;
     }
 
     if (existingValue is String) {
@@ -291,10 +301,9 @@ class KnobsNotifier extends ChangeNotifier implements KnobsBuilder {
         final knobMap = _knobs[_selectedStoryRepository.item];
         final knob = knobMap?[knobLabel];
         final dynamic currentKnobValue = knob?.value;
-        if (currentKnobValue != null) {
-          // TODO: doesn't work for slider
+        if (knob != null && currentKnobValue != null) {
           final dynamic newKnobValue =
-              _parseUrlArg<dynamic>(currentKnobValue, newKnobValueArg);
+              _parseUrlArg<dynamic>(knob, currentKnobValue, newKnobValueArg);
           if (currentKnobValue != newKnobValue) {
             update<dynamic>(knobLabel, newKnobValue);
           }
