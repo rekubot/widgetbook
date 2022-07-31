@@ -239,28 +239,29 @@ class KnobsNotifier extends ChangeNotifier implements KnobsBuilder {
   String buildKnobUrlArgs() {
     final useCase = _selectedStoryRepository.item;
     final knobs = _knobs[useCase];
-    var arg = '';
+    final buffer = StringBuffer();
 
     if (knobs != null) {
-      knobs.forEach((key, knob) {
+      for (final pair in knobs.entries) {
+        final key = pair.key;
+        final knob = pair.value;
         final dynamic knobValue = knob.value;
 
+        String? value;
         if (knob is OptionsKnob) {
           final matchingOption = knob.options
               .firstWhereOrNull((element) => element.value == knobValue);
-          if (matchingOption != null) {
-            arg += '$key:';
-            arg += matchingOption.label;
+          if (matchingOption == null) {
+            continue;
           }
+          value = matchingOption.label;
         } else {
-          arg += '$key:';
-          arg += '$knobValue';
+          value = '$knobValue';
         }
-        arg += ';';
-        // TODO: check if other knob types need handling
-      });
+        buffer.write('$key:$value;');
+      }
     }
-    return arg;
+    return buffer.toString();
   }
 
   T? _parseUrlArg<T>(Knob knob, T existingValue, String urlArg) {
@@ -281,7 +282,10 @@ class KnobsNotifier extends ChangeNotifier implements KnobsBuilder {
       return num.tryParse(urlArg) as T? ?? existingValue;
     }
 
-    // TODO: handle other knob value types
+    if (existingValue is bool) {
+      return (urlArg == 'true') as T;
+    }
+
     return existingValue;
   }
 
